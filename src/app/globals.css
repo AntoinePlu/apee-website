@@ -28,3 +28,26 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+/* GT America: add woff2 files to public/fonts/ (e.g. GTAmerica-Standard-Regular.woff2) to enable */
+@font-face {
+  font-family: "GT America";
+  src: url("/fonts/GTAmerica-Standard-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "GT America";
+  src: url("/fonts/GTAmerica-Standard-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "GT America";
+  src: url("/fonts/GTAmerica-Standard-Thin.woff2") format("woff2");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}

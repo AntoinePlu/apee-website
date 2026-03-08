@@ -11,6 +11,15 @@ export default function Home() {
               <Link href="/" className="hover:text-foreground transition-colors">
                 Home
               </Link>
+              <Link href="/about" className="hover:text-foreground transition-colors">
+                About
+              </Link>
+              <Link href="/track-records" className="hover:text-foreground transition-colors">
+                Track records
+              </Link>
+              <Link href="/stack" className="hover:text-foreground transition-colors">
+                Stack
+              </Link>
               <a
                 href="https://github.com"
                 target="_blank"
