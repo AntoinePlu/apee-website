@@ -1087,10 +1087,10 @@ const thinkExploreTwoStep: D7Fn = (p, e): D7 => {
   x[5] = b2.x; y[5] = b2.y;
   x[6] = b3.x; y[6] = b3.y;
   return {
-    x: [...x, b0.x] as D7["x"],
-    y: [...y, b0.y] as D7["y"],
-    sz: [...sz, DZ] as D7["sz"],
-    op: [...op, 1] as D7["op"],
+    x: [...x, b0.x] as unknown as D7["x"],
+    y: [...y, b0.y] as unknown as D7["y"],
+    sz: [...sz, DZ] as unknown as D7["sz"],
+    op: [...op, 1] as unknown as D7["op"],
   };
 };
 
@@ -1173,10 +1173,10 @@ const thinkExplore: D7Fn = (p, e): D7 => {
   op[6] = opacityForBottom(bottomSlotPhase(3).seg, bottomSlotPhase(3).frac);
   const op8 = opacityForBottom(bottomSlotPhase(0).seg, bottomSlotPhase(0).frac);
   return {
-    x: [...x, b0.x] as D7["x"],
-    y: [...y, b0.y] as D7["y"],
-    sz: [...sz, DZ] as D7["sz"],
-    op: [...op, op8] as D7["op"],
+    x: [...x, b0.x] as unknown as D7["x"],
+    y: [...y, b0.y] as unknown as D7["y"],
+    sz: [...sz, DZ] as unknown as D7["sz"],
+    op: [...op, op8] as unknown as D7["op"],
   };
 };
 
