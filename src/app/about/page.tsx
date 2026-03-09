@@ -16,6 +16,12 @@ export default function About() {
               <Link href="/about" className="text-foreground">
                 About
               </Link>
+              <Link href="/track-records" className="hover:text-foreground transition-colors">
+                Track records
+              </Link>
+              <Link href="/stack" className="hover:text-foreground transition-colors">
+                Stack
+              </Link>
             </div>
           </nav>
         </header>
