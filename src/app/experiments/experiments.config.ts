@@ -15,4 +15,9 @@ export const EXPERIMENTS: Experiment[] = [
     title: "Pulse icon + shimmer text",
     description: "Pulsing circle and text with a moving shimmer, plus speed controls.",
   },
+  {
+    slug: "agent-loader",
+    title: "AI agent loader",
+    description: "Multi-step loading animation for an AI agent with timeline scrubber and easing.",
+  },
 ];
