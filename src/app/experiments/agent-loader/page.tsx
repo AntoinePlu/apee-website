@@ -1045,57 +1045,139 @@ const thinkFigmaV5: D7Fn = (p, e): D7 => {
   return lerpD7(figmaV5Steps[step], figmaV5Steps[next], t);
 };
 
-// Explore: 3D cube. Draw order: back at center (20%) = dot 0; front at center (100%) = dot 3 so center renders black.
-// At t=0: 0 at C (20%), 1 at LL, 2 at UR, 3 at C (100%), 4 at UL, 5 at T, 6 at B.
-// Top: 3 C→UL, 4 UL→T, 5 T→UR, 2 UR→C (same t). Bottom: 0 C→LR(20→100%) then LR→B, 1 LL→C(100→20%), 6 B→LL.
-const thinkExplore: D7Fn = (p, e): D7 => {
+// Explore (2-step): top 4 + bottom 4 dots; dots move between 2 positions only (left <-> right). Saved as separate variant.
+const thinkExploreTwoStep: D7Fn = (p, e): D7 => {
   const t = applyEasing(p, e);
   const x: D7["x"] = [0, 0, 0, 0, 0, 0, 0];
   const y: D7["y"] = [0, 0, 0, 0, 0, 0, 0];
   const sz: D7["sz"] = [DZ, DZ, DZ, DZ, DZ, DZ, DZ];
   const op: D7["op"] = [1, 1, 1, 1, 1, 1, 1];
 
-  const C = { x: THINK.x[0], y: THINK.y[0] };
-  const LR = { x: THINK.x[1], y: THINK.y[1] };
-  const UR = { x: THINK.x[2], y: THINK.y[2] };
-  const LL = { x: THINK.x[3], y: THINK.y[3] };
-  const UL = { x: THINK.x[4], y: THINK.y[4] };
-  const T = { x: THINK.x[5], y: THINK.y[5] };
-  const B = { x: THINK.x[6], y: THINK.y[6] };
+  const topPos: { x: number; y: number }[] = [
+    { x: -25, y: 15 },  // 0 left
+    { x: 25, y: 15 },   // 1 right
+  ];
+  const bottomPos: { x: number; y: number }[] = [
+    { x: -25, y: -15 }, // 0 left
+    { x: 25, y: -15 },  // 1 right
+  ];
+  const n = 2;
 
-  // Top: C→UL→T→UR→C, same t
-  x[3] = lerp(C.x, UL.x, t);
-  y[3] = lerp(C.y, UL.y, t);
-  op[3] = 1;
-  x[4] = lerp(UL.x, T.x, t);
-  y[4] = lerp(UL.y, T.y, t);
-  op[4] = 1;
-  x[5] = lerp(T.x, UR.x, t);
-  y[5] = lerp(T.y, UR.y, t);
-  op[5] = 1;
-  x[2] = lerp(UR.x, C.x, t);
-  y[2] = lerp(UR.y, C.y, t);
-  op[2] = 1;
+  const posAt = (positions: { x: number; y: number }[], slotIndex: number) => {
+    const phase = (slotIndex / n + t) % 1;
+    const k = Math.floor(phase * n) % n;
+    const next = (k + 1) % n;
+    const frac = (phase * n) % 1;
+    return {
+      x: lerp(positions[k].x, positions[next].x, frac),
+      y: lerp(positions[k].y, positions[next].y, frac),
+    };
+  };
 
-  // Bottom: 0 = back (20% at C), C→LR then LR→B. 1 LL→C (100→20%). 6 B→LL.
-  x[1] = lerp(LL.x, C.x, t);
-  y[1] = lerp(LL.y, C.y, t);
-  op[1] = lerp(1, 0.2, t);
-  if (t <= 0.5) {
-    const u = t * 2;
-    x[0] = lerp(C.x, LR.x, u);
-    y[0] = lerp(C.y, LR.y, u);
-    op[0] = lerp(0.2, 1, u);
-  } else {
-    const u = (t - 0.5) * 2;
-    x[0] = lerp(LR.x, B.x, u);
-    y[0] = lerp(LR.y, B.y, u);
-    op[0] = 1;
+  for (let i = 0; i < 4; i++) {
+    const q = posAt(topPos, i);
+    x[i] = q.x;
+    y[i] = q.y;
   }
-  x[6] = lerp(B.x, LL.x, t);
-  y[6] = lerp(B.y, LL.y, t);
-  op[6] = 1;
-  return { x, y, sz, op };
+  const b0 = posAt(bottomPos, 0);
+  const b1 = posAt(bottomPos, 1);
+  const b2 = posAt(bottomPos, 2);
+  const b3 = posAt(bottomPos, 3);
+  x[4] = b1.x; y[4] = b1.y;
+  x[5] = b2.x; y[5] = b2.y;
+  x[6] = b3.x; y[6] = b3.y;
+  return {
+    x: [...x, b0.x] as D7["x"],
+    y: [...y, b0.y] as D7["y"],
+    sz: [...sz, DZ] as D7["sz"],
+    op: [...op, 1] as D7["op"],
+  };
+};
+
+// Explore: top 4 dots and bottom 4 dots (8 in two groups), sharing one center. Cycle: bottom → left → top → right → bottom.
+// Split in two with separate ease-out: (1) bottom → left → top, (2) top → right → bottom.
+const thinkExplore: D7Fn = (p, e): D7 => {
+  const x: D7["x"] = [0, 0, 0, 0, 0, 0, 0];
+  const y: D7["y"] = [0, 0, 0, 0, 0, 0, 0];
+  const sz: D7["sz"] = [DZ, DZ, DZ, DZ, DZ, DZ, DZ];
+  const op: D7["op"] = [1, 1, 1, 1, 1, 1, 1];
+
+  const topPos: { x: number; y: number }[] = [
+    { x: -25, y: 15 },  // 0 left
+    { x: 0, y: 30 },    // 1 top
+    { x: 25, y: 15 },   // 2 right
+    { x: 0, y: 0 },     // 3 bottom = center (shared)
+  ];
+  const bottomPos: { x: number; y: number }[] = [
+    { x: -25, y: -15 }, // 0 left
+    { x: 0, y: 0 },     // 1 top = center (shared)
+    { x: 25, y: -15 },  // 2 right
+    { x: 0, y: -30 },   // 3 bottom
+  ];
+  const n = 4;
+  // Path order: bottom(3) → left(0) → top(1) → right(2) → bottom(3)
+  const order = [3, 0, 1, 2];
+
+  // Two segments, each with its own ease-out at the end.
+  let phase: number;
+  if (p < 0.5) {
+    const local = (p * 2); // 0 to 1 over first half
+    const eased = applyEasing(local, e);
+    phase = eased * 0.5; // 0 to 0.5: bottom → left → top
+  } else {
+    const local = (p - 0.5) * 2; // 0 to 1 over second half
+    const eased = applyEasing(local, e);
+    phase = 0.5 + eased * 0.5; // 0.5 to 1: top → right → bottom
+  }
+
+  const posAt = (positions: { x: number; y: number }[], slotIndex: number) => {
+    const slotPhase = (slotIndex / n + phase) % 1;
+    const seg = Math.floor(slotPhase * n) % n;
+    const next = (seg + 1) % n;
+    const frac = (slotPhase * n) % 1;
+    const k = order[seg];
+    const kNext = order[next];
+    return {
+      x: lerp(positions[k].x, positions[kNext].x, frac),
+      y: lerp(positions[k].y, positions[kNext].y, frac),
+    };
+  };
+
+  // Bottom-only opacity: left/right/bottom = 100%, top = 20%. Interpolate on left→top (100→20) and top→right (20→100).
+  const opacityForBottom = (seg: number, frac: number): number => {
+    if (seg === 1) return lerp(1, 0.2, frac);   // left → top
+    if (seg === 2) return lerp(0.2, 1, frac);   // top → right
+    return 1;                                    // bottom→left, right→bottom
+  };
+
+  for (let i = 0; i < 4; i++) {
+    const q = posAt(topPos, i);
+    x[i] = q.x;
+    y[i] = q.y;
+  }
+  const bottomSlotPhase = (slotIndex: number) => {
+    const slotPhase = (slotIndex / n + phase) % 1;
+    const seg = Math.floor(slotPhase * n) % n;
+    const frac = (slotPhase * n) % 1;
+    return { seg, frac };
+  };
+  const b0 = posAt(bottomPos, 0);
+  const b1 = posAt(bottomPos, 1);
+  const b2 = posAt(bottomPos, 2);
+  const b3 = posAt(bottomPos, 3);
+  x[4] = b1.x; y[4] = b1.y;
+  x[5] = b2.x; y[5] = b2.y;
+  x[6] = b3.x; y[6] = b3.y;
+  op[4] = opacityForBottom(bottomSlotPhase(1).seg, bottomSlotPhase(1).frac);
+  op[5] = opacityForBottom(bottomSlotPhase(2).seg, bottomSlotPhase(2).frac);
+  op[6] = opacityForBottom(bottomSlotPhase(3).seg, bottomSlotPhase(3).frac);
+  const op8 = opacityForBottom(bottomSlotPhase(0).seg, bottomSlotPhase(0).frac);
+  return {
+    x: [...x, b0.x] as D7["x"],
+    y: [...y, b0.y] as D7["y"],
+    sz: [...sz, DZ] as D7["sz"],
+    op: [...op, op8] as D7["op"],
+  };
 };
 
 const THINK_ANIMS: { name: string; fn: D7Fn; desc: string }[] = [
@@ -1122,7 +1204,8 @@ const THINK_ANIMS: { name: string; fn: D7Fn; desc: string }[] = [
   { name: "Figma V4", fn: thinkFigmaV4, desc: "2-state morph, staggered clockwise (Make: Load-Anim-V4)" },
   { name: "Figma V5", fn: thinkFigmaV6, desc: "2-state morph, all dots in sync; delay + ease-out transition (Make: Load-Anim-V4)" },
   { name: "Figma V6", fn: thinkFigmaV5, desc: "4 steps: cluster ↔ hex, rotate CW (Make: Implement-Loader-Animation)" },
-  { name: "Explore", fn: thinkExplore, desc: "3D cube; center front/back (100%/20%); top C→UL→T→UR→C, bottom LL→C, C→LR, B→LL" },
+  { name: "Explore", fn: thinkExplore, desc: "Top 4 + bottom 4; bottom→left→top (ease-out) then top→right→bottom (ease-out)" },
+  { name: "Explore 2-step", fn: thinkExploreTwoStep, desc: "Top 4 + bottom 4; dots move between 2 positions only (left <-> right)" },
 ];
 
 const ANIMS: { name: string; fn: AnimFn; desc: string }[] = [
