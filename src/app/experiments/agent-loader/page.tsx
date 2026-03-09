@@ -12,7 +12,7 @@ const MAX_DURATION_MS = 10000;
 const DS = 8;       // dot size
 const CS = 29.5;    // circle size
 const HS = CS / 2;  // flower orbit radius (touching circles)
-const BP = 4;       // border px (full-size view)
+const BP = 6;       // border px (full-size view, fully deployed)
 const CX = 50;      // logical center X
 const CY = 50;      // logical center Y
 
@@ -1101,7 +1101,6 @@ const thinkExplore: D7Fn = (p, e): D7 => {
 const THINK_ANIMS: { name: string; fn: D7Fn; desc: string }[] = [
   { name: "Breathe", fn: thinkBreathe, desc: "Radial scale in/out; positions move with scale" },
   { name: "Combine", fn: thinkCombine, desc: "Dots move to center, hold, then return" },
-  { name: "Rotate", fn: thinkRotate, desc: "Whole cluster rotates" },
   { name: "Pair Swap", fn: thinkPairSwap, desc: "Three pairs swap positions smoothly" },
   { name: "Pulse", fn: thinkPulse, desc: "Unison size and opacity pulse" },
   { name: "Wave", fn: thinkWave, desc: "Horizontal line; y travels as sine wave" },
@@ -1150,9 +1149,10 @@ const ALL_ANIMS: AnyAnim[] = [
 // ─── AnimView ─────────────────────────────────────────────────────────────────
 // Renders 6 independent circles from a C6 polar state scaled to viewSize×viewSize.
 // Polar → screen: x = CX + r·cos(a°),  y = CY − r·sin(a°)
-function AnimView({ state, viewSize, bw }: { state: C6; viewSize: number; bw: number }) {
+function AnimView({ state, viewSize, bw, opacity = 1 }: { state: C6; viewSize: number; bw: number; opacity?: number }) {
   const scale = viewSize / 100;
   const rad   = (d: number) => (d * Math.PI) / 180;
+  const borderColor = opacity === 1 ? "black" : `rgba(0,0,0,${opacity})`;
 
   return (
     <div className="relative shrink-0" style={{ width: viewSize, height: viewSize }}>
@@ -1164,15 +1164,13 @@ function AnimView({ state, viewSize, bw }: { state: C6; viewSize: number; bw: nu
         return (
           <div
             key={i}
-            className="absolute rounded-full border-black bg-transparent"
+            className="absolute rounded-full bg-transparent"
             style={{
-              width:       sz,
-              height:      sz,
-              left:        cx - hr,
-              top:         cy - hr,
-              borderWidth: bw,
-              borderStyle: "solid",
-              boxSizing:   "border-box",
+              width:    sz,
+              height:   sz,
+              left:     cx - hr,
+              top:      cy - hr,
+              boxShadow: `inset 0 0 0 ${bw}px ${borderColor}`,
             }}
           />
         );
@@ -1184,7 +1182,7 @@ function AnimView({ state, viewSize, bw }: { state: C6; viewSize: number; bw: nu
 // ─── ThinkView ────────────────────────────────────────────────────────────────
 // Renders 7 solid filled dots from a D7 state. Dots are black with variable opacity.
 // Screen mapping: screen_x = (CX + x)·scale,  screen_y = (CY − y)·scale
-function ThinkView({ state, viewSize }: { state: D7; viewSize: number }) {
+function ThinkView({ state, viewSize, opacity = 1 }: { state: D7; viewSize: number; opacity?: number }) {
   const scale = viewSize / 100;
   return (
     <div className="relative shrink-0" style={{ width: viewSize, height: viewSize }}>
@@ -1197,7 +1195,7 @@ function ThinkView({ state, viewSize }: { state: D7; viewSize: number }) {
           <div
             key={i}
             className="absolute rounded-full bg-black"
-            style={{ width: sz, height: sz, left: cx - hr, top: cy - hr, opacity: state.op[i] }}
+            style={{ width: sz, height: sz, left: cx - hr, top: cy - hr, opacity: state.op[i] * opacity }}
           />
         );
       })}
@@ -1248,15 +1246,13 @@ export default function AgentLoaderExperiment() {
     startTimeRef.current = performance.now() - progress * durationMs;
   };
 
-  // Compute all states each frame
-  const allStates = ALL_ANIMS.map(entry =>
-    entry.kind === "c6" ? entry.fn(progress, easing) : entry.fn(progress, easing)
-  );
   const entry = ALL_ANIMS[selectedAnim];
+
+  const smallViewSize = 24;
 
   return (
     <div
-      className={`${inter.className} relative flex min-h-screen flex-col items-center bg-white text-neutral-800 antialiased`}
+      className={`${inter.className} relative flex min-h-screen bg-white text-neutral-800 antialiased`}
       style={{ fontSize: 14, lineHeight: "20px", fontWeight: 600 }}
     >
       <Link
@@ -1266,122 +1262,111 @@ export default function AgentLoaderExperiment() {
         ← Back to experiments
       </Link>
 
-      <main className="flex min-h-0 w-full max-w-2xl flex-1 flex-col items-center justify-center gap-12 overflow-y-auto px-6 py-20">
-
-        {/* Variant picker — two sections */}
-        <div className="w-full space-y-4">
+      {/* Left: variant list (2 columns, text only) + controls at bottom */}
+      <aside className="flex w-56 shrink-0 flex-col border-r border-neutral-200 min-w-0">
+        <div className="flex-1 overflow-y-auto px-3 pt-14 pb-4">
           {(["c6", "d7"] as const).map(kind => {
             const label   = kind === "c6" ? "Circle icon" : "Dot icon";
             const entries = ALL_ANIMS.map((a, i) => ({ ...a, i })).filter(a => a.kind === kind);
             return (
-              <div key={kind}>
+              <div key={kind} className="mb-4">
                 <p className="mb-2 text-[10px] uppercase tracking-widest text-neutral-400">{label}</p>
-                <div className="grid grid-cols-5 gap-1.5">
-                  {entries.map(({ name, i }) => {
-                    const st = allStates[i];
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => setSelectedAnim(i)}
-                        className={`flex items-center gap-1.5 rounded-lg border px-1.5 py-1.5 text-left transition-colors ${
-                          selectedAnim === i
-                            ? "border-neutral-900 bg-neutral-50"
-                            : "border-neutral-200 hover:border-neutral-400"
-                        }`}
-                      >
-                        <div className="relative shrink-0" style={{ width: 22, height: 22 }}>
-                          {kind === "c6"
-                            ? <AnimView   state={st as C6} viewSize={22} bw={1.25} />
-                            : <ThinkView  state={st as D7} viewSize={22} />}
-                        </div>
-                        <span className={`truncate text-[11px] leading-none ${selectedAnim === i ? "text-neutral-900" : "text-neutral-500"}`}>
-                          {name}
-                        </span>
-                      </button>
-                    );
-                  })}
+                <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
+                  {entries.map(({ name, i }) => (
+                    <button
+                      key={i}
+                      onClick={() => setSelectedAnim(i)}
+                      className={`truncate rounded px-1.5 py-1 text-left text-[11px] transition-colors ${
+                        selectedAnim === i
+                          ? "bg-neutral-100 text-neutral-900"
+                          : "text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700"
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ))}
                 </div>
               </div>
             );
           })}
         </div>
-
-        {/* Selected anim name + description */}
-        <div className="flex flex-col items-center gap-1 text-center">
-          <span className="text-sm text-neutral-900">{entry.name}</span>
-          <span className="text-xs text-neutral-400">{entry.desc}</span>
+        <div className="shrink-0 min-w-0 overflow-hidden border-t border-neutral-200 p-3">
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex h-6 min-w-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={togglePlayPause}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-neutral-200 bg-white text-neutral-800 transition-colors hover:bg-neutral-50"
+                aria-label={isPlaying ? "Pause" : "Play"}
+              >
+                {isPlaying
+                  ? <span className="text-[10px] font-semibold">II</span>
+                  : <span className="ml-0.5 text-[10px] font-semibold">▶</span>}
+              </button>
+              <label htmlFor="timeline" className="shrink-0 text-[10px] leading-none">Timeline</label>
+              <input
+                id="timeline"
+                type="range" min={0} max={100}
+                value={Math.round(progress * 100)}
+                onChange={handleScrubChange}
+                onMouseUp={releaseScrubber}
+                onTouchEnd={releaseScrubber}
+                className="range-knob-9 h-[5px] min-h-0 min-w-0 flex-1 appearance-none rounded-full bg-neutral-200 accent-blue-600"
+              />
+              <span className="w-7 shrink-0 text-right text-[10px] text-neutral-500 leading-none">
+                {Math.round(progress * 100)}%
+              </span>
+            </div>
+            <div className="flex h-6 min-w-0 items-center gap-2">
+              <div className="w-6 shrink-0" />
+              <label htmlFor="duration" className="shrink-0 text-[10px] leading-none">Duration</label>
+              <input
+                id="duration"
+                type="range" min={0} max={100}
+                value={durationSpeed}
+                onChange={e => setDurationSpeed(Number(e.target.value))}
+                className="range-knob-9 h-[5px] min-h-0 min-w-0 flex-1 appearance-none rounded-full bg-neutral-200 accent-blue-600"
+              />
+              <span className="w-7 shrink-0 text-right text-[10px] text-neutral-500 leading-none">
+                {(durationMs / 1000).toFixed(1)}s
+              </span>
+            </div>
+            <div className="flex h-6 min-w-0 items-center gap-2">
+              <div className="w-6 shrink-0" />
+              <label htmlFor="easing" className="shrink-0 text-[10px] leading-none">Easing</label>
+              <select
+                id="easing"
+                value={easing}
+                onChange={e => setEasing(e.target.value as EasingId)}
+                className="h-6 min-w-0 flex-1 rounded border border-neutral-200 bg-white px-2 text-[11px] text-neutral-800"
+              >
+                {EASINGS.map(opt => (
+                  <option key={opt.id} value={opt.id}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
+      </aside>
 
-        {/* Main animation */}
+      {/* Center: big animation, then small + "Overthinking…" */}
+      <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-10 overflow-y-auto px-6 py-12">
+        {/* Big animation */}
         {entry.kind === "c6"
-          ? <AnimView  state={entry.fn(progress, easing) as C6} viewSize={100} bw={BP} />
-          : <ThinkView state={entry.fn(progress, easing) as D7} viewSize={100} />}
+          ? <AnimView  state={entry.fn(progress, easing) as C6} viewSize={160} bw={BP} />
+          : <ThinkView state={entry.fn(progress, easing) as D7} viewSize={160} />}
 
-        {/* Controls */}
-        <div className="flex w-full flex-col gap-2">
-
-          <div className="flex h-6 items-center gap-3">
-            <button
-              type="button"
-              onClick={togglePlayPause}
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-neutral-200 bg-white text-neutral-800 transition-colors hover:bg-neutral-50"
-              aria-label={isPlaying ? "Pause" : "Play"}
-            >
-              {isPlaying
-                ? <span className="text-[10px] font-semibold">II</span>
-                : <span className="ml-0.5 text-[10px] font-semibold">▶</span>}
-            </button>
-            <label htmlFor="timeline" className="flex h-6 w-14 shrink-0 items-center leading-none">
-              Timeline
-            </label>
-            <input
-              id="timeline"
-              type="range" min={0} max={100}
-              value={Math.round(progress * 100)}
-              onChange={handleScrubChange}
-              onMouseUp={releaseScrubber}
-              onTouchEnd={releaseScrubber}
-              className="range-knob-9 h-[5px] min-h-0 flex-1 appearance-none rounded-full bg-neutral-200 accent-blue-600"
-            />
-            <span className="flex h-6 w-10 shrink-0 items-center justify-end text-neutral-500 leading-none">
-              {Math.round(progress * 100)}%
-            </span>
-          </div>
-
-          <div className="flex h-6 items-center gap-3">
-            <div className="w-6 shrink-0" />
-            <label htmlFor="duration" className="flex h-6 w-14 shrink-0 items-center leading-none">
-              Duration
-            </label>
-            <input
-              id="duration"
-              type="range" min={0} max={100}
-              value={durationSpeed}
-              onChange={e => setDurationSpeed(Number(e.target.value))}
-              className="range-knob-9 h-[5px] min-h-0 flex-1 appearance-none rounded-full bg-neutral-200 accent-blue-600"
-            />
-            <span className="flex h-6 w-14 shrink-0 items-center justify-end text-neutral-500 leading-none">
-              {(durationMs / 1000).toFixed(1)}s
-            </span>
-          </div>
-
-          <div className="flex h-6 items-center gap-3">
-            <div className="w-6 shrink-0" />
-            <label htmlFor="easing" className="flex h-6 w-14 shrink-0 items-center leading-none">
-              Easing
-            </label>
-            <select
-              id="easing"
-              value={easing}
-              onChange={e => setEasing(e.target.value as EasingId)}
-              className="h-6 flex-1 rounded border border-neutral-200 bg-white px-2 text-sm text-neutral-800"
-            >
-              {EASINGS.map(opt => (
-                <option key={opt.id} value={opt.id}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-
+        {/* Small version with label on the right */}
+        <div className="flex items-center gap-1">
+          {entry.kind === "c6"
+            ? <AnimView  state={entry.fn(progress, easing) as C6} viewSize={smallViewSize} bw={1.25} opacity={0.48} />
+            : <ThinkView state={entry.fn(progress, easing) as D7} viewSize={smallViewSize} opacity={0.48} />}
+          <span
+            className={inter.className}
+            style={{ fontSize: 14, lineHeight: "20px", fontWeight: 400, color: "rgba(0,0,0,0.64)" }}
+          >
+            Overthinking…
+          </span>
         </div>
       </main>
     </div>
