@@ -22,6 +22,9 @@ export default function About() {
               <Link href="/stack" className="hover:text-foreground transition-colors">
                 Stack
               </Link>
+              <Link href="/experiments" className="hover:text-foreground transition-colors">
+                Experiments
+              </Link>
             </div>
           </nav>
         </header>
