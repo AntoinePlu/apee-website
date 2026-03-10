@@ -1264,15 +1264,27 @@ function AnimView({ state, viewSize, bw, opacity = 1 }: { state: C6; viewSize: n
 
 // ─── ThinkView ────────────────────────────────────────────────────────────────
 // Renders 7 solid filled dots from a D7 state. Dots are black with variable opacity.
-// Screen mapping: screen_x = (CX + x)·scale,  screen_y = (CY − y)·scale
-function ThinkView({ state, viewSize, opacity = 1 }: { state: D7; viewSize: number; opacity?: number }) {
-  const scale = viewSize / 100;
+// Screen mapping: screen_x = (CX + x)·posScale,  screen_y = (CY − y)·posScale
+//
+// dotSizePx — when set, overrides the dot-size scale so that a DZ-sized dot
+//   renders at exactly dotSizePx pixels. All sizes are rounded to integers to
+//   avoid sub-pixel blurriness. Positions still use posScale.
+function ThinkView({ state, viewSize, opacity = 1, dotSizePx }: {
+  state: D7;
+  viewSize: number;
+  opacity?: number;
+  dotSizePx?: number;
+}) {
+  const posScale  = viewSize / 100;
+  const sizeScale = dotSizePx != null ? dotSizePx / DZ : posScale;
   return (
     <div className="relative shrink-0" style={{ width: viewSize, height: viewSize }}>
       {state.x.map((x, i) => {
-        const sz = state.sz[i] * scale;
-        const cx = (CX + x) * scale;
-        const cy = (CY - state.y[i]) * scale;
+        const rawSz = state.sz[i] * sizeScale;
+        // Snap to nearest integer so dots stay crisp at small sizes.
+        const sz = dotSizePx != null ? Math.max(0, Math.round(rawSz)) : rawSz;
+        const cx = (CX + x) * posScale;
+        const cy = (CY - state.y[i]) * posScale;
         const hr = sz / 2;
         return (
           <div
@@ -1443,7 +1455,7 @@ export default function AgentLoaderExperiment() {
         <div className="flex items-center gap-1">
           {entry.kind === "c6"
             ? <AnimView  state={entry.fn(progress, easing) as C6} viewSize={smallViewSize} bw={1.25} opacity={0.48} />
-            : <ThinkView state={entry.fn(progress, easing) as D7} viewSize={smallViewSize} opacity={0.48} />}
+            : <ThinkView state={entry.fn(progress, easing) as D7} viewSize={smallViewSize} opacity={0.48} dotSizePx={2} />}
           <span
             className={inter.className}
             style={{ fontSize: 14, lineHeight: "20px", fontWeight: 400, color: "rgba(0,0,0,0.64)" }}
